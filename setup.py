@@ -1,6 +1,4 @@
-"""Golem: A Probabilistic Approach to Optimization Under Uncertain Inputs
-
-Some description here...
+"""Chimera: Hierarchy-Based Multi-Objective Optimization
 """
 
 from setuptools import setup
@@ -28,8 +26,8 @@ setup(name='chimera',
       url='https://github.com/',
       author='Florian Häse, Matteo Aldeghi',
       author_email='matteo.aldeghi@vectorinstitute.ai',
-      license='MIT 3',
-      packages=['golem'],
+      license='MIT',
+      packages=['chimera'],
       package_dir={'': 'src'},
       zip_safe=False,
       install_requires=['numpy'],
