@@ -6,13 +6,26 @@ import numpy as np
 class Chimera:
 
     def __init__(self, relatives, absolutes, softness=1e-3):
+        """
+        Hierarchy-based scalarizing function for multi-objective optimization. The user can obtain a single
+        scalarizing function from a hierarchy of objectives and their associated relative or absolute thresholds.
+
+        Parameters
+        ----------
+        relatives : list
+            list of relative thresholds, within [0,1], for each objective.
+        absolutes : list
+            list of absolute thresholds for each objective.
+        softness : float, optional
+            Smoothing parameter. Default is 0.001.
+        """
         self.relatives = relatives
         self.absolutes = absolutes
         self.softness  = softness
 
     def _soft_step(self, value):
         arg = - value / self.softness
-        return np.exp( - np.logaddexp(0, arg))
+        return np.exp(- np.logaddexp(0, arg))
 
     def _hard_step(self, value):
         result = np.where(value > 0., 1., 0.)
@@ -92,12 +105,12 @@ class Chimera:
         return _merits.transpose()
 
     def scalarize(self, objs):
-        """
+        """Scalarize the objectives.
 
         Parameters
         ----------
         objs : array
-            blablabla
+            Array of ...
 
         Returns
         -------
