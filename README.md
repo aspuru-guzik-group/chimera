@@ -1,4 +1,4 @@
-# Chimera: hierarchy based multi-objective optimization
+# Chimera: hierarchy-based multi-objective optimization
 
 ``Chimera`` is a general purpose achievement scalarizing function for multi-objective optimization. It allows 
 the user to set a hierarchy of objectives along with relative or absolute thresholds for them to be optimized

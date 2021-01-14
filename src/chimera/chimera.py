@@ -5,18 +5,18 @@ import numpy as np
 
 class Chimera:
 
-    def __init__(self, thresholds, absolute=False, goals=None, softness=1e-3):
+    def __init__(self, tolerances, absolute=False, goals=None, softness=1e-3):
         """
         Hierarchy-based scalarizing function for multi-objective optimization. The user can obtain a single
         scalarizing function from a hierarchy of objectives and their associated relative or absolute thresholds.
 
         Parameters
         ----------
-        thresholds : list
-            list of thresholds for each objective. The order of these thresholds should reflect
-            the hierarchy of the objectives, such that the first element of the list should be the threshold for the
-            first objective, the second element the threshold for the second objective, and so on. By default, relative
-            thresholds (within [0,1]) are expected. If you would like to provide absolute thresholds, you need to
+        tolerances : list
+            list of tolerances for each objective. The order of these tolerances should reflect
+            the hierarchy of the objectives, such that the first element of the list should be the tolerance for the
+            first objective, the second element the tolerance for the second objective, and so on. By default, relative
+            tolerance (within [0,1]) are expected. If you would like to provide absolute tolerances, you need to
             set pass ``True`` to the ``absolute`` argument.
         absolute : bool
             whether the provided thresholds are absolute as opposed to relative ones. Default is ``False``.
@@ -31,24 +31,24 @@ class Chimera:
 
         # check input
         if absolute is False:
-            for t in thresholds:
+            for t in tolerances:
                 if t > 1. or t < 0.:
-                    raise ValueError('relative thresholds need to be between 0 and 1. If you would like to use '
-                                     'absolute thresholds, you should set the argument "absolute" to True')
+                    raise ValueError('relative tolerances need to be between 0 and 1. If you would like to use '
+                                     'absolute tolerances, you should set the argument "absolute" to True')
 
         if goals is not None:
-            if len(goals) != len(thresholds):
-                raise ValueError('`thresholds` and `goals` should be lists of the same length')
+            if len(goals) != len(tolerances):
+                raise ValueError('`tolerances` and `goals` should be lists of the same length')
             for goal in goals:
                 if goal not in ['min', 'max']:
                     raise ValueError("`goals` can only contain 'min' or 'max'")
 
         # attributes
-        self.thresholds = np.array(thresholds)
+        self.tolerances = np.array(tolerances)
         self.absolute = absolute
         self.softness = softness
         if goals is None:
-            self.goals = ['min'] * len(self.thresholds)
+            self.goals = ['min'] * len(self.tolerances)
         else:
             self.goals = goals
 
@@ -70,18 +70,18 @@ class Chimera:
     def _adjust_objectives(self, objs):
         """adjust objectives based on optimization goal"""
         adjusted_objs = np.empty(objs.shape)
-        adjusted_thre = np.empty(self.thresholds.shape)
+        adjusted_thre = np.empty(self.tolerances.shape)
 
         for i, obj_goal in enumerate(self.goals):
             if obj_goal == 'min':
                 adjusted_objs[:, i] = objs[:, i]
-                adjusted_thre[i] = self.thresholds[i]
+                adjusted_thre[i] = self.tolerances[i]
             elif obj_goal == 'max':
                 adjusted_objs[:, i] = - objs[:, i]
                 if self.absolute is False:
-                    adjusted_thre[i] = self.thresholds[i]
+                    adjusted_thre[i] = self.tolerances[i]
                 else:
-                    adjusted_thre[i] = - self.thresholds[i]
+                    adjusted_thre[i] = - self.tolerances[i]
 
         return adjusted_objs, adjusted_thre
 
