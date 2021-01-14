@@ -5,7 +5,7 @@ import numpy as np
 
 class Chimera:
 
-    def __init__(self, tolerances, absolute=False, goals=None, softness=1e-3):
+    def __init__(self, tolerances, absolutes=None, goals=None, softness=1e-3):
         """
         Hierarchy-based scalarizing function for multi-objective optimization. The user can obtain a single
         scalarizing function from a hierarchy of objectives and their associated relative or absolute thresholds.
@@ -18,8 +18,9 @@ class Chimera:
             first objective, the second element the tolerance for the second objective, and so on. By default, relative
             tolerance (within [0,1]) are expected. If you would like to provide absolute tolerances, you need to
             set pass ``True`` to the ``absolute`` argument.
-        absolute : bool
-            whether the provided thresholds are absolute as opposed to relative ones. Default is ``False``.
+        absolutes : list
+            list indicating whether the corresponding thresholds are absolute as opposed to relative ones. Default
+            is ``False`` for all tolerances.
         goals : list
             list of optimization goals. By default, it is assumed that all objectives are being minimized
             ('min'). If some objectives are to be maximized ('max'), you need to specify it with this argument.
@@ -30,11 +31,15 @@ class Chimera:
         """
 
         # check input
-        if absolute is False:
-            for t in tolerances:
-                if t > 1. or t < 0.:
-                    raise ValueError('relative tolerances need to be between 0 and 1. If you would like to use '
-                                     'absolute tolerances, you should set the argument "absolute" to True')
+        # -----------
+        if absolutes is not None:
+            # check same length as tolerances
+            if len(absolutes) != len(tolerances):
+                raise ValueError('`tolerances` and `absolute` should be lists of the same length')
+            # check only True/False in absolute
+            for b in absolutes:
+                if not isinstance(b, bool):
+                    raise ValueError("`absolute` should be a list of True/False values")
 
         if goals is not None:
             if len(goals) != len(tolerances):
@@ -44,13 +49,36 @@ class Chimera:
                     raise ValueError("`goals` can only contain 'min' or 'max'")
 
         # attributes
+        # ----------
         self.tolerances = np.array(tolerances)
-        self.absolute = absolute
         self.softness = softness
+
         if goals is None:
             self.goals = ['min'] * len(self.tolerances)
         else:
             self.goals = goals
+
+        if absolutes is None:
+            self.absolutes = [False] * len(self.tolerances)
+        else:
+            self.absolutes = absolutes
+
+        # check that all relative tolerances are in [0,1]
+        for b, t in zip(self.absolutes, self.tolerances):
+            if b is False:
+                if t > 1. or t < 0.:
+                    raise ValueError('relative tolerances need to be between 0 and 1. If you would like to use '
+                                     'absolute tolerances, you should set the corresponding element of '
+                                     '"absolutes" to True')
+
+        # internal attrs (useful for inspection/debugging)
+        # ------------------------------------------------
+        self._objs = None
+        self._scaled_objs = None
+        self._shifted_objs = None
+        self._thresholds = None
+        self._scaled_thresholds = None
+        self._shifted_thresholds = None
 
     def _soft_step(self, value):
         arg = - value / self.softness
@@ -78,42 +106,41 @@ class Chimera:
                 adjusted_thre[i] = self.tolerances[i]
             elif obj_goal == 'max':
                 adjusted_objs[:, i] = - objs[:, i]
-                if self.absolute is False:
-                    adjusted_thre[i] = self.tolerances[i]
-                else:
+                # if absolute tolerance and max, we invert threshold
+                if self.absolutes[i] is True:
                     adjusted_thre[i] = - self.tolerances[i]
+                else:
+                    adjusted_thre[i] = self.tolerances[i]
 
         return adjusted_objs, adjusted_thre
 
-    @staticmethod
-    def _rescale_objs(objs):
-        """ rescales objectives and absolute threshols such that all
-            observed objectives are within [0, 1]
-        """
-        _objectives = np.empty(objs.shape)
-        for idx in range(objs.shape[1]):
-            min_obj, max_obj = np.amin(objs[:, idx]), np.amax(objs[:, idx])
-            if min_obj < max_obj:
-                _objectives[:, idx] = (objs[:, idx] - min_obj) / (max_obj - min_obj)
-            else:
-                _objectives[:, idx] = objs[:, idx] - min_obj
-        return _objectives
-
-    @staticmethod
-    def _rescale_objs_and_thres(objs, thres):
+    def _rescale_objs_and_thres(self, objs, thres):
         """ rescales objectives and absolute threshols such that all
             observed objectives are within [0, 1]
         """
         _objectives = np.empty(objs.shape)
         _thresholds = np.empty(thres.shape)
+
+        # iterate over objectives
         for idx in range(objs.shape[1]):
             min_obj, max_obj = np.amin(objs[:, idx]), np.amax(objs[:, idx])
+            # to avoid division by zero, check max-min > 0
             if min_obj < max_obj:
                 _objectives[:, idx] = (objs[:, idx] - min_obj) / (max_obj - min_obj)
-                _thresholds[idx] = (thres[idx] - min_obj) / (max_obj - min_obj)
+                # scale _thresholds only if absolute, otherwise skip
+                if self.absolutes[idx] is True:
+                    _thresholds[idx] = (thres[idx] - min_obj) / (max_obj - min_obj)
+                else:
+                    _thresholds[idx] = thres[idx]
+            # if all objs values are the same, simply shift values to zero (and absolute threshold accordingly)
             else:
                 _objectives[:, idx] = objs[:, idx] - min_obj
-                _thresholds[idx] = thres[idx] - min_obj
+                # scale _thresholds only if absolute, otherwise skip
+                if self.absolutes[idx] is True:
+                    _thresholds[idx] = thres[idx] - min_obj
+                else:
+                    _thresholds[idx] = thres[idx]
+
         return _objectives, _thresholds
 
     @staticmethod
@@ -181,19 +208,18 @@ class Chimera:
         merits : array
             One-dimensional array with the scalarized objective.
         """
-        _objs, _thresholds = self._adjust_objectives(np.array(objs))
 
-        if self.absolute is False:
-            # we have relative thresholds
-            _scaled_objectives = self._rescale_objs(_objs)
-            _shifted_objs, _shifted_thresholds = self._shift(_scaled_objectives, _thresholds)
-        else:
-            # we have absolute thresholds
-            _scaled_objectives, _scaled_thresholds = self._rescale_objs_and_thres(_objs, _thresholds)
-            _shifted_objs, _shifted_thresholds = self._shift(_scaled_objectives, _scaled_thresholds)
-
-        merits = self._scalarize(_shifted_objs, _shifted_thresholds)
+        # adjust objectives, i.e. invert if maximizing
+        self._objs, self._thresholds = self._adjust_objectives(np.array(objs))
+        # normalize objectives (and absolute thresholds if present)
+        self._scaled_objs, self._scaled_thresholds = self._rescale_objs_and_thres(self._objs, self._thresholds)
+        # sort objectives and thresholds to minimize correctly
+        self._shifted_objs, self._shifted_thresholds = self._shift(self._scaled_objs, self._scaled_thresholds)
+        # scalarize objectives based on shifted objectives and thresholds
+        merits = self._scalarize(self._shifted_objs, self._shifted_thresholds)
+        # normalize chimera objective function
         if np.amax(merits) > 0.:
             merits = (merits - np.amin(merits)) / (np.amax(merits) - np.amin(merits))
+
         return merits
 
