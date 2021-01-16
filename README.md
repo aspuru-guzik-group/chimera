@@ -12,7 +12,7 @@ for self-driving laboratories](https://pubs.rsc.org/ko/content/articlelanding/20
 ``Chimera`` can be installed with ``pip``:
 
 ```
-pip install chimera
+pip install aag-chimera
 ```
 
 The installation requires only ``python >= 3`` and ``numpy``.
