@@ -12,7 +12,7 @@ for self-driving laboratories](https://pubs.rsc.org/ko/content/articlelanding/20
 ``Chimera`` can be installed with ``pip``:
 
 ```
-pip install aag-chimera
+pip install matter-chimera
 ```
 
 The installation requires only ``python >= 3`` and ``numpy``.
@@ -38,7 +38,7 @@ Sometimes we know our objective well, and we might want to optimize to at least 
 This setup can be achieved by using absolute rather than relative tolerances, by specifying ``absolute=[True, True]``:
 
 ```
-chimera = Chimera(tolerances=[10, 120], absolute=[True, True], goals=['min', 'max'])
+chimera = Chimera(tolerances=[10, 120], absolutes=[True, True], goals=['min', 'max'])
 ```
 
 In this case, we are saying that we would like to minimize the first objective to at least a value of 10, and maximize
