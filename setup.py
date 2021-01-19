@@ -6,18 +6,18 @@ import versioneer
 
 
 def readme():
-    with open('README.md') as f:
+    with open('README.md', 'r') as f:
         return f.read()
 
 
 # -----
 # Setup
 # -----
-setup(name='chimera',
+setup(name='matter-chimera',
       version=versioneer.get_version(),
       cmdclass=versioneer.get_cmdclass(),
-      description='',
       long_description=readme(),
+      long_description_content_type='text/markdown',
       classifiers=[
         'Programming Language :: Python',
         'Intended Audience :: Science/Research',
