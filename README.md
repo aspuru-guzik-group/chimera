@@ -19,6 +19,8 @@ The installation requires only ``python >= 3`` and ``numpy``.
 
 ### Usage
 
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/aspuru-guzik-group/chimera/blob/master/chimera_example.ipynb)
+
 ```
 from chimera import Chimera
 
