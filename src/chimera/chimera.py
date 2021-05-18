@@ -148,42 +148,39 @@ class Chimera:
         """ shift rescaled objectives based on identified regions of
             interest
         """
-        _transposed_objs = _objectives.transpose()
-        shapes           = _transposed_objs.shape
-        _shifted_objs    = np.empty((shapes[0] + 1, shapes[1]))
-
-        mins, maxs = [], []
-        thresholds = []
-        domain     = np.arange(shapes[1])
-        shift      = 0
+        _transposed_objs = _objectives.transpose()  # the objectives
+        domain     = np.arange(_transposed_objs.shape[1])
+        
+        # we return the shifted objectives, with additional obj that repeats the first obj
+        # and the shifted thresholds that go with those objectives
+        #shifted_objs    = np.empty((shapes[0] + 1, shapes[1]))
+        shifted_objs = []
+        shifted_thresholds = []  # the shifted thresholds
+        
+        # the first objective is not shifted
+        shift      = 0.            
+        shifted_objs.append(_transposed_objs[0])
 
         for idx, obj in enumerate(_transposed_objs):
-
-            # get absolute thresholds
-            minimum = np.amin(obj[domain])
-            maximum = np.amax(obj[domain])
-
-            mins.append(minimum)
-            maxs.append(maximum)
-
-            threshold = minimum + _thresholds[idx] * (maximum - minimum)
+            
+            # compute and append shifted thresholds
+            shifted_threshold = _thresholds[idx] + shift
+            shifted_thresholds.append(shifted_threshold)
 
             # adjust to region of interest
-            interest = np.where(obj[domain] < threshold)[0]
+            interest = np.where(obj[domain] < _thresholds[idx])[0]
             if len(interest) > 0:
                 domain = domain[interest]
-
-            # apply shift
-            thresholds.append(threshold + shift)
-            _shifted_objs[idx] = _transposed_objs[idx] + shift
-
+            
             # compute new shift
-            if idx < len(_transposed_objs) - 1:
-                shift -= np.amax(_transposed_objs[idx + 1][domain]) - threshold
-            else:
-                shift -= np.amax(_transposed_objs[0][domain]) - threshold
-                _shifted_objs[idx + 1] = _transposed_objs[0] + shift
-        return _shifted_objs, thresholds
+            next_idx = (idx + 1) % _transposed_objs.shape[0]  # i.e. loop back to idx == 0
+            shift -= np.amax(_transposed_objs[next_idx][domain]) - _thresholds[idx]
+            
+            # apply shift and append to shifted objective
+            shifted_obj = _transposed_objs[next_idx] + shift
+            shifted_objs.append(shifted_obj)
+            
+        return np.array(shifted_objs), np.array(shifted_thresholds)
 
     def _scalarize(self, _shifted_objs, thresholds):
         _merits = _shifted_objs[-1].copy()
