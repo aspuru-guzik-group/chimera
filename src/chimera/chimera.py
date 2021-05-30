@@ -86,7 +86,7 @@ class Chimera:
 
     @staticmethod
     def _hard_step(value):
-        result = np.where(value > 0., 1., 0.)
+        result = np.where(value >= 0., 1., 0.)
         return result
 
     def _step(self, value):
@@ -94,6 +94,10 @@ class Chimera:
             return self._hard_step(value)
         else:
             return self._soft_step(value)
+
+    @staticmethod
+    def _invert_binary(a):
+        return np.abs(np.array(a) - 1.)
 
     def _adjust_objectives(self, objs):
         """adjust objectives based on optimization goal"""
@@ -174,7 +178,7 @@ class Chimera:
             
             # compute new shift
             next_idx = (idx + 1) % _transposed_objs.shape[0]  # i.e. loop back to idx == 0
-            shift -= np.amax(_transposed_objs[next_idx][domain]) - _thresholds[idx]
+            shift = - np.amax(_transposed_objs[next_idx][domain]) + np.min(shifted_thresholds)
             
             # apply shift and append to shifted objective
             shifted_obj = _transposed_objs[next_idx] + shift
@@ -182,12 +186,15 @@ class Chimera:
             
         return np.array(shifted_objs), np.array(shifted_thresholds)
 
-    def _scalarize(self, _shifted_objs, thresholds):
-        _merits = _shifted_objs[-1].copy()
-        for idx in range(0, len(_shifted_objs) - 1)[::-1]:
-            _merits *= self._step( - _shifted_objs[idx] + thresholds[idx])
-            _merits += self._step(   _shifted_objs[idx] - thresholds[idx]) * _shifted_objs[idx]
-        return _merits.transpose()
+    def _scalarize(self, shifted_objs, shifted_thres):
+        # iterate from last objective to first
+        merits = shifted_objs[-1].copy()
+        for idx in range(0, len(shifted_objs) - 1)[::-1]:
+            # first, make lower objective zero where there shuold be the higher objective
+            merits *= self._invert_binary(self._step(shifted_objs[idx] - shifted_thres[idx]))
+            # then, add the higher objective to the domain region that we just made equal to zero
+            merits += self._step(shifted_objs[idx] - shifted_thres[idx]) * shifted_objs[idx]
+        return merits.transpose()
 
     def scalarize(self, objs):
         """Scalarize the objectives.
