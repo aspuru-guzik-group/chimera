@@ -147,41 +147,47 @@ class Chimera:
 
         return _objectives, _thresholds
 
-    @staticmethod
-    def _shift(_objectives, _thresholds):
+    def _shift(self, objectives, thresholds):
         """ shift rescaled objectives based on identified regions of
             interest
         """
-        _transposed_objs = _objectives.transpose()  # the objectives
-        domain     = np.arange(_transposed_objs.shape[1])
+        transposed_objs = objectives.transpose()  # the objectives
+        domain = np.arange(transposed_objs.shape[1])
         
         # we return the shifted objectives, with additional obj that repeats the first obj
         # and the shifted thresholds that go with those objectives
-        #shifted_objs    = np.empty((shapes[0] + 1, shapes[1]))
         shifted_objs = []
         shifted_thresholds = []  # the shifted thresholds
         
         # the first objective is not shifted
-        shift      = 0.            
-        shifted_objs.append(_transposed_objs[0])
+        shift = 0.            
+        shifted_objs.append(transposed_objs[0])
 
-        for idx, obj in enumerate(_transposed_objs):
+        for idx, obj in enumerate(transposed_objs):
+
+            # adapt relative thresholds/tolerances according to domain of interest
+            if self.absolutes[idx] is False:
+                domain_min = np.min(obj[domain])
+                domain_max = np.max(obj[domain])
+                _threshold = domain_min + thresholds[idx] * (domain_max - domain_min)
+            else:
+                _threshold = thresholds[idx]
             
             # compute and append shifted thresholds
-            shifted_threshold = _thresholds[idx] + shift
+            shifted_threshold = thresholds[idx] + shift
             shifted_thresholds.append(shifted_threshold)
 
             # adjust to region of interest
-            interest = np.where(obj[domain] < _thresholds[idx])[0]
+            interest = np.where(obj[domain] < thresholds[idx])[0]
             if len(interest) > 0:
                 domain = domain[interest]
             
             # compute new shift
-            next_idx = (idx + 1) % _transposed_objs.shape[0]  # i.e. loop back to idx == 0
-            shift = - np.amax(_transposed_objs[next_idx][domain]) + np.min(shifted_thresholds)
+            next_idx = (idx + 1) % transposed_objs.shape[0]  # i.e. loop back to idx == 0
+            shift = - np.amax(transposed_objs[next_idx][domain]) + np.min(shifted_thresholds)
             
             # apply shift and append to shifted objective
-            shifted_obj = _transposed_objs[next_idx] + shift
+            shifted_obj = transposed_objs[next_idx] + shift
             shifted_objs.append(shifted_obj)
             
         return np.array(shifted_objs), np.array(shifted_thresholds)
