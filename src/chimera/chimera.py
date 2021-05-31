@@ -5,7 +5,7 @@ import numpy as np
 
 class Chimera:
 
-    def __init__(self, tolerances, absolutes=None, goals=None, softness=1e-3):
+    def __init__(self, tolerances, absolutes=None, percentiles=None, goals=None, softness=1e-3):
         """
         Hierarchy-based scalarizing function for multi-objective optimization. The user can obtain a single
         scalarizing function from a hierarchy of objectives and their associated relative or absolute thresholds.
@@ -18,6 +18,10 @@ class Chimera:
             first objective, the second element the tolerance for the second objective, and so on. By default, relative
             tolerance (within [0,1]) are expected. If you would like to provide absolute tolerances, you need to
             set pass ``True`` to the ``absolute`` argument.
+        percentiles : list
+            list indicating whether the corresponding thresholds are expected to be treated as percentiles rather than 
+            fractions. If ``True``, the corresponding relative threshold is not set as a fraction of the co-domain, but
+            as the nth percentile of the observed objectives. Default is ``False`` for all tolerances.
         absolutes : list
             list indicating whether the corresponding thresholds are absolute as opposed to relative ones. Default
             is ``False`` for all tolerances.
@@ -35,11 +39,20 @@ class Chimera:
         if absolutes is not None:
             # check same length as tolerances
             if len(absolutes) != len(tolerances):
-                raise ValueError('`tolerances` and `absolute` should be lists of the same length')
+                raise ValueError('`tolerances` and `absolutes` should be lists of the same length')
             # check only True/False in absolute
             for b in absolutes:
                 if not isinstance(b, bool):
-                    raise ValueError("`absolute` should be a list of True/False values")
+                    raise ValueError("`absolutes` should be a list of True/False values")
+
+        if percentiles is not None:
+            # check same length as tolerances
+            if len(percentiles) != len(tolerances):
+                raise ValueError('`tolerances` and `percentiles` should be lists of the same length')
+            # check only True/False in absolute
+            for b in percentiles:
+                if not isinstance(b, bool):
+                    raise ValueError("`percentiles` should be a list of True/False values")
 
         if goals is not None:
             if len(goals) != len(tolerances):
@@ -62,6 +75,17 @@ class Chimera:
             self.absolutes = [False] * len(self.tolerances)
         else:
             self.absolutes = absolutes
+
+        if percentiles is None:
+            self.percentiles = [False] * len(self.tolerances)
+        else:
+            self.percentiles = percentiles
+
+        # check that we do not have both absolutes and percentiles defined
+        for b1, b2 in zip(self.absolutes, self.percentiles):
+            if b1 is True and b2 is True:
+                raise ValueError('a tolerance value cannot be defined as both an absolute and a percentile tolerance\n',
+                                 'make sure that `absolutes` and `percentiles` do not have any same element set to `True`')
 
         # check that all relative tolerances are in [0,1]
         for b, t in zip(self.absolutes, self.tolerances):
@@ -167,14 +191,18 @@ class Chimera:
 
             # adapt relative thresholds/tolerances according to domain of interest
             if self.absolutes[idx] is False:
-                domain_min = np.min(obj[domain])
-                domain_max = np.max(obj[domain])
-                _threshold = domain_min + thresholds[idx] * (domain_max - domain_min)
+                if self.percentiles[idx] is False:
+                    domain_min = np.min(obj[domain])
+                    domain_max = np.max(obj[domain])
+                    _threshold = domain_min + thresholds[idx] * (domain_max - domain_min)
+                # if relative percentile tolerance, take percentile rather than fraction
+                else:
+                    _threshold = np.percentile(obj[domain], thresholds[idx] * 100., interpolation='linear')
             else:
                 _threshold = thresholds[idx]
             
             # compute and append shifted thresholds
-            shifted_threshold = thresholds[idx] + shift
+            shifted_threshold = _threshold - shift
             shifted_thresholds.append(shifted_threshold)
 
             # adjust to region of interest
@@ -184,10 +212,10 @@ class Chimera:
             
             # compute new shift
             next_idx = (idx + 1) % transposed_objs.shape[0]  # i.e. loop back to idx == 0
-            shift = - np.amax(transposed_objs[next_idx][domain]) + np.min(shifted_thresholds)
+            shift = np.amax(transposed_objs[next_idx][domain]) - np.min(shifted_thresholds)
             
             # apply shift and append to shifted objective
-            shifted_obj = transposed_objs[next_idx] + shift
+            shifted_obj = transposed_objs[next_idx] - shift
             shifted_objs.append(shifted_obj)
             
         return np.array(shifted_objs), np.array(shifted_thresholds)
