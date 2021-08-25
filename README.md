@@ -36,6 +36,18 @@ parameters space where the first contraint is satisfied (i.e. first objective is
 values range observed), ``Chimera``would scalarize the objectives in such a way that we would be optimising only the 
 second objective and never return to the first. Please refer to the paper for a more detailed description of the algorithm.
 
+Note there is also the possibility to define ``tolerances`` are percentiles rather than fractions with the ``percentiles``
+argument:
+
+```
+chimera = Chimera(tolerances=[0.5, 0.2], percentiles=[True, True], goals=['min', 'max'])
+```
+
+In this case, we are saying that we allow the first objective to degrade up to observed value of the 50% percentile
+in order to improve upon the second objective. We then allow the second objective to degrade up to the 20% percentile
+value in order go back to improve the first objective. As in the previous example, if once we achieve the desired 
+target for the first objective we want to optimise the second objective as much as possible, we can set ``tolerances=[0.5, 0.0]``.
+
 Sometimes we know our objective well, and we might want to optimize to at least a specific value for this objective. 
 This setup can be achieved by using absolute rather than relative tolerances, by specifying ``absolute=[True, True]``:
 
