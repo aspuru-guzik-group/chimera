@@ -5,7 +5,7 @@ import numpy as np
 
 class Chimera:
 
-    def __init__(self, tolerances, absolutes=None, percentiles=None, goals=None, softness=1e-3):
+    def __init__(self, tolerances, absolutes=None, percentiles=None, goals=None, softness=1e-3, transforms=None):
         """
         Hierarchy-based scalarizing function for multi-objective optimization. The user can obtain a single
         scalarizing function from a hierarchy of objectives and their associated relative or absolute thresholds.
@@ -32,6 +32,8 @@ class Chimera:
             you should pass ['max', 'min'] to this argument.
         softness : float
             Smoothing parameter. Default is 0.001.
+        transforms: list
+            list of functions to apply to objectives
         """
 
         # check input
@@ -60,6 +62,7 @@ class Chimera:
             for goal in goals:
                 if goal not in ['min', 'max']:
                     raise ValueError("`goals` can only contain 'min' or 'max'")
+        
 
         # attributes
         # ----------
@@ -80,6 +83,11 @@ class Chimera:
             self.percentiles = [False] * len(self.tolerances)
         else:
             self.percentiles = percentiles
+        
+        if transforms is None:
+            self.transforms = None
+        else:
+            self.transforms = transforms
 
         # check that we do not have both absolutes and percentiles defined
         for b1, b2 in zip(self.absolutes, self.percentiles):
@@ -230,6 +238,13 @@ class Chimera:
             merits += self._step(shifted_objs[idx] - shifted_thres[idx]) * shifted_objs[idx]
         return merits.transpose()
 
+    def _transform(self, objs, transforms):
+        # applies transformations on objs if inputted, else unchanged
+        if transforms is not None:
+            for i in range(len(transforms)):
+                objs[:,i] = transforms[i](objs[:,i])
+        return np.array(objs)
+
     def scalarize(self, objs):
         """Scalarize the objectives.
 
@@ -246,9 +261,11 @@ class Chimera:
         merits : array
             One-dimensional array with the scalarized objective.
         """
-
+        # apply transforms 
+        self._objs = self._transform(np.array(objs),self.transforms)
         # adjust objectives, i.e. invert if maximizing
-        self._objs, self._thresholds = self._adjust_objectives(np.array(objs))
+        #self._objs, self._thresholds = self._adjust_objectives(np.array(objs))
+        self._objs, self._thresholds = self._adjust_objectives(self._objs)
         # normalize objectives (and absolute thresholds if present)
         self._scaled_objs, self._scaled_thresholds = self._rescale_objs_and_thres(self._objs, self._thresholds)
         # sort objectives and thresholds to minimize correctly
@@ -261,3 +278,4 @@ class Chimera:
 
         return merits
 
+# %%
