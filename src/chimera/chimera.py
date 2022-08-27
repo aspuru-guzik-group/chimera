@@ -63,11 +63,6 @@ class Chimera:
                 if goal not in ['min', 'max']:
                     raise ValueError("`goals` can only contain 'min' or 'max'")
         
-        ####
-        if transforms is None:
-            self.transforms = None
-        else:
-            self.transforms = transforms
 
         # attributes
         # ----------
@@ -88,6 +83,11 @@ class Chimera:
             self.percentiles = [False] * len(self.tolerances)
         else:
             self.percentiles = percentiles
+        
+        if transforms is None:
+            self.transforms = None
+        else:
+            self.transforms = transforms
 
         # check that we do not have both absolutes and percentiles defined
         for b1, b2 in zip(self.absolutes, self.percentiles):
@@ -239,6 +239,7 @@ class Chimera:
         return merits.transpose()
 
     def _transform(self, objs, transforms):
+        # applies transformations on objs if inputted, else unchanged
         if transforms is not None:
             for i in range(len(transforms)):
                 objs[:,i] = transforms[i](objs[:,i])
